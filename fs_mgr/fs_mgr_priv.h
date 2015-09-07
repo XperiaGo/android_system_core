@@ -78,7 +78,8 @@
  * a la the Nexus One.
  */
 #define MF_NOEMULATEDSD 0x400
-#define MF_DISABLED     0x8000
+#define MF_DISABLED     0x800
+#define MF_ZRAMSTREAMS  0x1000
 
 #define DM_BUF_SIZE 4096
 

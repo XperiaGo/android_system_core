@@ -57,6 +57,7 @@
 #define FSCK_LOG_FILE   "/dev/fscklogs/log"
 
 #define ZRAM_CONF_DEV   "/sys/block/zram0/disksize"
+#define ZRAM_STREAMS    "/sys/block/zram0/max_comp_streams"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 
@@ -97,6 +98,7 @@ static struct flag_list fs_mgr_flags[] = {
     { "recoveryonly",MF_RECOVERYONLY },
     { "swapprio=",   MF_SWAPPRIO },
     { "zramsize=",   MF_ZRAMSIZE },
+    { "zramstreams=",MF_ZRAMSTREAMS },
     { "verify",      MF_VERIFY },
     { "noemulatedsd", MF_NOEMULATEDSD },
     { "defaults",    0 },
@@ -110,6 +112,7 @@ struct fs_mgr_flag_values {
     int partnum;
     int swap_prio;
     unsigned int zram_size;
+    unsigned int zram_streams;
 };
 
 /*
@@ -157,6 +160,7 @@ static int parse_flags(char *flags, struct flag_list *fl,
         memset(flag_vals, 0, sizeof(*flag_vals));
         flag_vals->partnum = -1;
         flag_vals->swap_prio = -1; /* negative means it wasn't specified. */
+        flag_vals->zram_streams = 1;
     }
 
     /* initialize fs_options to the null string */
@@ -211,6 +215,8 @@ static int parse_flags(char *flags, struct flag_list *fl,
                     flag_vals->swap_prio = strtoll(strchr(p, '=') + 1, NULL, 0);
                 } else if ((fl[i].flag == MF_ZRAMSIZE) && flag_vals) {
                     flag_vals->zram_size = strtoll(strchr(p, '=') + 1, NULL, 0);
+                } else if ((fl[i].flag == MF_ZRAMSTREAMS) && flag_vals) {
+                    flag_vals->zram_streams = strtoll(strchr(p, '=') + 1, NULL, 0);
                 }
                 break;
             }
@@ -378,6 +384,7 @@ struct fstab *fs_mgr_read_fstab(const char *fstab_path)
         fstab->recs[cnt].partnum = flag_vals.partnum;
         fstab->recs[cnt].swap_prio = flag_vals.swap_prio;
         fstab->recs[cnt].zram_size = flag_vals.zram_size;
+        fstab->recs[cnt].zram_streams = flag_vals.zram_streams;
         update_fallbacks(fstab->recs, cnt);
         cnt++;
     }
@@ -826,6 +833,14 @@ int fs_mgr_swapon_all(struct fstab *fstab)
              * we can assume the device number is 0.
              */
             FILE *zram_fp;
+
+            /* The stream count parameter is only available on new kernels.
+             * It must be set before the disk size. */
+            zram_fp = fopen(ZRAM_STREAMS, "r+");
+            if (zram_fp) {
+                fprintf(zram_fp, "%d\n", fstab->recs[i].zram_streams);
+                fclose(zram_fp);
+            }
 
             zram_fp = fopen(ZRAM_CONF_DEV, "r+");
             if (zram_fp == NULL) {

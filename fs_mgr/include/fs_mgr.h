@@ -45,6 +45,7 @@ struct fstab_rec {
     int partnum;
     int swap_prio;
     unsigned int zram_size;
+    unsigned int zram_streams;
 
     // cwm
     char *blk_device2;
